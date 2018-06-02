@@ -16,8 +16,8 @@ I fork cpython and hammer those checks into this cpython fork.
 For example the following typo is not noticed:
 ```python
 def f(x):
-	variable = 5
-	# ...
+    variable = 5
+    # ...
     if (x > 1):
         variable = 42
     else:
@@ -32,8 +32,8 @@ If we only want to stay compatible to python3, we can use (pascal-like) annotate
 For example:
 ```python
 def f(x):
-	variable : int = 5 # Declaration of variable. The type doesn't matter to us (apparently something called "mypy" cares about this).
-	# ...
+    variable : int = 5 # Declaration of variable. The type doesn't matter to us (apparently something called "mypy" cares about this).
+    # ...
     if (x > 1):
         variable = 42
     else:
