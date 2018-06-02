@@ -85,5 +85,6 @@ but you can just use `__slots__`, if you want to prevent dynamic extension of in
 ## Known issues
 
 StrictPython currently doesn't give `vars()` the special treatment it needs.
-StrictPython doesn't detect all unused variables, when there are many nested scopes. Use small functions.
+
+There's no guarantee that StrictPython detects all unused variables, when there are many nested scopes. Use small functions.
 
