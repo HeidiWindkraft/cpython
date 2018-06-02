@@ -1384,7 +1384,8 @@ class OptionParser (OptionContainer):
         self.values = values
 
         try:
-            stop = self._process_args(largs, rargs, values)
+            # stop = self._process_args(largs, rargs, values) # STRICT
+            self._process_args(largs, rargs, values)
         except (BadOptionError, OptionValueError) as err:
             self.error(str(err))
 

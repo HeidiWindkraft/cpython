@@ -465,6 +465,7 @@ class ZipInfo (object):
                     old = self.header_offset
                     self.header_offset = counts[idx]
                     idx+=1
+                    del old # STRICT
 
             extra = extra[ln+4:]
 

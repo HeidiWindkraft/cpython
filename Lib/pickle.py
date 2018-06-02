@@ -940,6 +940,7 @@ class _Pickler:
     def save_global(self, obj, name=None):
         write = self.write
         memo = self.memo
+        del memo # STRICT
 
         if name is None:
             name = getattr(obj, '__qualname__', None)

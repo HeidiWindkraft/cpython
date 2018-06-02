@@ -937,6 +937,7 @@ class Popen(object):
                 self._communication_started = True
 
             sts = self.wait(timeout=self._remaining_time(endtime))
+            del sts # STRICT
 
         return (stdout, stderr)
 

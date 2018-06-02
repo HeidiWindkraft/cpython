@@ -131,6 +131,7 @@ class TokenTests(unittest.TestCase):
                     x = eval(s)
                 except OverflowError:
                     self.fail("OverflowError on huge integer literal %r" % s)
+            del x # strict
         elif maxsize == 9223372036854775807:
             self.assertEqual(-9223372036854775807-1, -0o1000000000000000000000)
             self.assertTrue(0o1777777777777777777777 > 0)
@@ -143,6 +144,7 @@ class TokenTests(unittest.TestCase):
                     x = eval(s)
                 except OverflowError:
                     self.fail("OverflowError on huge integer literal %r" % s)
+            del x # strict
         else:
             self.fail('Weird maxsize value %r' % maxsize)
 

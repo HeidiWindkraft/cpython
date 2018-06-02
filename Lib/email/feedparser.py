@@ -267,6 +267,7 @@ class FeedParser:
                         continue
                     break
                 msg = self._pop_message()
+                del msg # strict
                 # We need to pop the EOF matcher in order to tell if we're at
                 # the end of the current file, not the end of the last block
                 # of message headers.

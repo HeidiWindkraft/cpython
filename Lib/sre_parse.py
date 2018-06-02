@@ -445,6 +445,7 @@ def _parse_sub(source, state, verbose, nested):
     itemsappend = items.append
     sourcematch = source.match
     start = source.tell()
+    del start # STRICT
     while True:
         itemsappend(_parse(source, state, verbose, nested + 1,
                            not nested and not items))

@@ -590,6 +590,7 @@ class SocketHandler(logging.Handler):
         if ei:
             # just to get traceback text into record.exc_text ...
             dummy = self.format(record)
+            del dummy # STRICT
         # See issue #14436: If msg or args are objects, they may not be
         # available on the receiving end. So we convert the msg % args
         # to a string, save it as msg and zap the args.

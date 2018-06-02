@@ -31,6 +31,8 @@
 #include "opcode.h"
 #include "wordcode_helpers.h"
 
+#include "debuglog.h"
+
 #define DEFAULT_BLOCK_SIZE 16
 #define DEFAULT_BLOCKS 8
 #define DEFAULT_CODE_SIZE 128
@@ -209,6 +211,10 @@ static int compiler_async_comprehension_generator(
 
 static PyCodeObject *assemble(struct compiler *, int addNone);
 static PyObject *__doc__, *__annotations__;
+
+#if USE_DEBUG
+static void dbglog_compiler_unit(struct compiler_unit*);
+#endif
 
 #define CAPSULE_NAME "compile.c compiler unit"
 
@@ -626,14 +632,47 @@ compiler_enter_scope(struct compiler *c, identifier name,
             return 0;
     }
 
+    DBGLOG_FBEG();
+    DEBUG(dbglog_compiler_unit(u));
     return 1;
 }
 
-static void
+static int
 compiler_exit_scope(struct compiler *c)
 {
     Py_ssize_t n;
     PyObject *capsule;
+    int res = 1;
+
+    DBGLOG_FBEG();
+    DEBUG(dbglog_compiler_unit(c->u));
+
+    if (((c->u->u_scope_type == COMPILER_SCOPE_FUNCTION) || (c->u->u_scope_type == COMPILER_SCOPE_ASYNC_FUNCTION))
+        && (c->c_st->st_strict_no_unused_vars)) {
+        PySTEntryObject *ste = c->u->u_ste;
+        PyObject *potunused = ste->ste_potunused;
+        PyObject *usednames = ste->ste_usednames;
+        Py_ssize_t pos = 0;
+        PyObject *key = 0;
+        Py_hash_t hash = 0;
+
+        while (_PySet_NextEntry(potunused, &pos, &key, &hash)) {
+            if (!PySet_Contains(usednames, key)) {
+                DBGLOG("UNUSED: ");
+                DBGLOGVARO(key);
+                /* TODO vars() */
+                /* PyErr_Format(PyExc_NameError, "variable %R defined but never used", key); */
+                PyErr_Format(PyExc_SyntaxError, "variable %R defined but never used in unit %R",
+                    key,
+                    c->u->u_qualname? c->u->u_qualname : c->u->u_name);
+                PyErr_SyntaxLocationObject(c->c_st->st_filename,
+                                           c->u->u_lineno,
+                                           c->u->u_col_offset);
+                res = 0;
+                break;
+            }
+        }
+    }
 
     c->c_nestlevel--;
     compiler_unit_free(c->u);
@@ -651,6 +690,7 @@ compiler_exit_scope(struct compiler *c)
     else
         c->u = NULL;
 
+    return res;
 }
 
 static int
@@ -1373,6 +1413,7 @@ compiler_addop_j(struct compiler *c, int opcode, basicblock *b, int absolute)
 #define VISIT_SEQ(C, TYPE, SEQ) { \
     int _i; \
     asdl_seq *seq = (SEQ); /* avoid variable capture */ \
+    DBGLOG("\t\tVISIT_SEQ: %d", asdl_seq_LEN(seq)); \
     for (_i = 0; _i < asdl_seq_LEN(seq); _i++) { \
         TYPE ## _ty elt = (TYPE ## _ty)asdl_seq_GET(seq, _i); \
         if (!compiler_visit_ ## TYPE((C), elt)) \
@@ -1669,7 +1710,9 @@ compiler_mod(struct compiler *c, mod_ty mod)
         return 0;
     }
     co = assemble(c, addNone);
-    compiler_exit_scope(c);
+    if (!compiler_exit_scope(c)) {
+        return 0;
+    }
     return co;
 }
 
@@ -2038,7 +2081,9 @@ compiler_function(struct compiler *c, stmt_ty s, int is_async)
     co = assemble(c, 1);
     qualname = c->u->u_qualname;
     Py_INCREF(qualname);
-    compiler_exit_scope(c);
+    if (!compiler_exit_scope(c)) {
+        return 0;
+    }
     if (co == NULL) {
         Py_XDECREF(qualname);
         Py_XDECREF(co);
@@ -2155,7 +2200,9 @@ compiler_class(struct compiler *c, stmt_ty s)
         co = assemble(c, 1);
     }
     /* leave the new scope */
-    compiler_exit_scope(c);
+    if (!compiler_exit_scope(c)) {
+        return 0;
+    }
     if (co == NULL)
         return 0;
 
@@ -2375,7 +2422,9 @@ compiler_lambda(struct compiler *c, expr_ty e)
     }
     qualname = c->u->u_qualname;
     Py_INCREF(qualname);
-    compiler_exit_scope(c);
+    if (!compiler_exit_scope(c)) {
+        return 0;
+    }
     if (co == NULL)
         return 0;
 
@@ -4130,7 +4179,9 @@ compiler_comprehension(struct compiler *c, expr_ty e, int type,
     co = assemble(c, 1);
     qualname = c->u->u_qualname;
     Py_INCREF(qualname);
-    compiler_exit_scope(c);
+    if (!compiler_exit_scope(c)) {
+        goto error;
+    }
     if (co == NULL)
         goto error;
 
@@ -4439,37 +4490,54 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         c->u->u_lineno = e->lineno;
         c->u->u_lineno_set = 0;
     }
+
+    DBGLOG_FBEG();
+    DBGLOGVARD(e->lineno);
+    DBGLOGVARD(e->col_offset);
+
     /* Updating the column offset is always harmless. */
     c->u->u_col_offset = e->col_offset;
     switch (e->kind) {
     case BoolOp_kind:
+        DBGLOG("BoolOp\n");
         return compiler_boolop(c, e);
     case BinOp_kind:
+        DBGLOG("BinOp\n");
         VISIT(c, expr, e->v.BinOp.left);
         VISIT(c, expr, e->v.BinOp.right);
         ADDOP(c, binop(c, e->v.BinOp.op));
         break;
     case UnaryOp_kind:
+        DBGLOG("UnaryOp\n");
         VISIT(c, expr, e->v.UnaryOp.operand);
         ADDOP(c, unaryop(e->v.UnaryOp.op));
         break;
     case Lambda_kind:
+        DBGLOG("Lambda\n");
         return compiler_lambda(c, e);
     case IfExp_kind:
+        DBGLOG("IfExp\n");
         return compiler_ifexp(c, e);
     case Dict_kind:
+        DBGLOG("Dict\n");
         return compiler_dict(c, e);
     case Set_kind:
+        DBGLOG("Set\n");
         return compiler_set(c, e);
     case GeneratorExp_kind:
+        DBGLOG("GeneratorExp\n");
         return compiler_genexp(c, e);
     case ListComp_kind:
+        DBGLOG("ListComp\n");
         return compiler_listcomp(c, e);
     case SetComp_kind:
+        DBGLOG("SetComp\n");
         return compiler_setcomp(c, e);
     case DictComp_kind:
+        DBGLOG("DictComp\n");
         return compiler_dictcomp(c, e);
     case Yield_kind:
+        DBGLOG("Yield\n");
         if (c->u->u_ste->ste_type != FunctionBlock)
             return compiler_error(c, "'yield' outside function");
         if (e->v.Yield.value) {
@@ -4481,6 +4549,7 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         ADDOP(c, YIELD_VALUE);
         break;
     case YieldFrom_kind:
+        DBGLOG("YieldFrom\n");
         if (c->u->u_ste->ste_type != FunctionBlock)
             return compiler_error(c, "'yield' outside function");
 
@@ -4493,6 +4562,7 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         ADDOP(c, YIELD_FROM);
         break;
     case Await_kind:
+        DBGLOG("Await\n");
         if (c->u->u_ste->ste_type != FunctionBlock)
             return compiler_error(c, "'await' outside function");
 
@@ -4506,33 +4576,44 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         ADDOP(c, YIELD_FROM);
         break;
     case Compare_kind:
+        DBGLOG("Compare\n");
         return compiler_compare(c, e);
     case Call_kind:
+        DBGLOG("Call\n");
         return compiler_call(c, e);
     case Constant_kind:
+        DBGLOG("Constant\n");
         ADDOP_LOAD_CONST(c, e->v.Constant.value);
         break;
     case Num_kind:
+        DBGLOG("Num\n");
         ADDOP_LOAD_CONST(c, e->v.Num.n);
         break;
     case Str_kind:
+        DBGLOG("Str\n");
         ADDOP_LOAD_CONST(c, e->v.Str.s);
         break;
     case JoinedStr_kind:
+        DBGLOG("JoinedStr\n");
         return compiler_joined_str(c, e);
     case FormattedValue_kind:
+        DBGLOG("FormattedValue\n");
         return compiler_formatted_value(c, e);
     case Bytes_kind:
+        DBGLOG("Bytes\n");
         ADDOP_LOAD_CONST(c, e->v.Bytes.s);
         break;
     case Ellipsis_kind:
+        DBGLOG("Ellipsis\n");
         ADDOP_LOAD_CONST(c, Py_Ellipsis);
         break;
     case NameConstant_kind:
+        DBGLOG("NameConstant\n");
         ADDOP_LOAD_CONST(c, e->v.NameConstant.value);
         break;
     /* The following exprs can be assignment targets. */
     case Attribute_kind:
+        DBGLOG("Attribute\n");
         if (e->v.Attribute.ctx != AugStore)
             VISIT(c, expr, e->v.Attribute.value);
         switch (e->v.Attribute.ctx) {
@@ -4559,6 +4640,7 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         }
         break;
     case Subscript_kind:
+        DBGLOG("Subscript\n");
         switch (e->v.Subscript.ctx) {
         case AugLoad:
             VISIT(c, expr, e->v.Subscript.value);
@@ -4587,6 +4669,7 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         }
         break;
     case Starred_kind:
+        DBGLOG("Starred\n");
         switch (e->v.Starred.ctx) {
         case Store:
             /* In all legitimate cases, the Starred node was already replaced
@@ -4599,11 +4682,14 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         }
         break;
     case Name_kind:
+        DBGLOG("Name\n");
         return compiler_nameop(c, e->v.Name.id, e->v.Name.ctx);
     /* child nodes of List and Tuple will have expr_context set */
     case List_kind:
+        DBGLOG("List\n");
         return compiler_list(c, e);
     case Tuple_kind:
+        DBGLOG("Tuple\n");
         return compiler_tuple(c, e);
     }
     return 1;
@@ -5548,6 +5634,35 @@ assemble(struct compiler *c, int addNone)
     assemble_free(&a);
     return co;
 }
+
+#if USE_DEBUG
+static void dbglog_compiler_unit(struct compiler_unit *pcu)
+{
+#define LOGVARD(varname) DBGLOGFIELDD(pcu, varname)
+#define LOGVARO(varname) DBGLOGFIELDO(pcu, varname)
+
+
+    DBGLOG("\ncompiler_unit\n");
+    LOGVARD(u_scope_type);
+    LOGVARD(u_argcount);
+    LOGVARD(u_kwonlyargcount);
+    LOGVARD(u_nfblocks);
+    LOGVARD(u_firstlineno);
+    LOGVARD(u_lineno);
+
+    LOGVARO(u_name);
+    LOGVARO(u_qualname);
+    /*LOGVARO(u_consts);*/
+    LOGVARO(u_names);
+    LOGVARO(u_varnames);
+    LOGVARO(u_cellvars);
+    LOGVARO(u_freevars);
+    LOGVARO(u_private);
+
+#undef LOGVARD
+#undef LOGVARO
+}
+#endif
 
 #undef PyAST_Compile
 PyAPI_FUNC(PyCodeObject *)

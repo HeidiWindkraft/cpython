@@ -2202,6 +2202,7 @@ def start_threads(threads, unlock=None):
             if unlock:
                 unlock()
             endtime = starttime = time.time()
+            del starttime # STRICT
             for timeout in range(1, 16):
                 endtime += 60
                 for t in started:

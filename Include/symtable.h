@@ -32,6 +32,8 @@ struct symtable {
                                        the symbol table */
     int recursion_depth;            /* current recursion depth */
     int recursion_limit;            /* recursion limit */
+
+    unsigned st_strict_no_unused_vars; /* Imported strict_no_unused_vars */
 };
 
 typedef struct _symtable_entry {
@@ -61,6 +63,9 @@ typedef struct _symtable_entry {
     int ste_opt_lineno;      /* lineno of last exec or import * */
     int ste_opt_col_offset;  /* offset of last exec or import * */
     struct symtable *ste_table;
+
+    PyObject *ste_usednames; /* Set of used variable names */
+    PyObject *ste_potunused; /* Set of declared but potentially unused variable names */
 } PySTEntryObject;
 
 PyAPI_DATA(PyTypeObject) PySTEntry_Type;

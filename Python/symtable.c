@@ -8,6 +8,8 @@
 #include "symtable.h"
 #include "structmember.h"
 
+#include "debuglog.h"
+
 /* error strings used for warnings */
 #define GLOBAL_PARAM \
 "name '%U' is parameter and global"
@@ -35,12 +37,74 @@
 
 #define IMPORT_STAR_WARNING "import * only allowed at module level"
 
+/* This static variable is set, if strict_no_unused_vars_viral is imported,
+ * to infect all subsequently created symboltables.
+*/
+static int static_strict_no_unused_vars_viral = 0;
+
+#if USE_DEBUG
+static void dbglog_dump_symtab(struct symtable *st)
+{
+    DBGLOG("symtable\n");
+    DBGLOGFIELDO(st, st_filename);
+    DBGLOGFIELDO(st, st_blocks);
+    DBGLOGFIELDO(st, st_stack);
+    DBGLOGFIELDO(st, st_global);
+    DBGLOGFIELDD(st, st_nblocks);
+    DBGLOGFIELDO(st, st_private);
+    DBGLOGFIELDD(st, recursion_depth);
+    DBGLOGFIELDD(st, recursion_limit);
+}
+
+static void dbglog_dump_stentry(PySTEntryObject *e)
+{
+    DBGLOG("symtable entry\n");
+    DBGLOGFIELDO(e, ste_id);
+    DBGLOGFIELDO(e, ste_symbols);
+    DBGLOGFIELDO(e, ste_name);
+    DBGLOGFIELDO(e, ste_varnames);
+    DBGLOGFIELDO(e, ste_children);
+    DBGLOGFIELDO(e, ste_directives);
+    DBGLOGFIELDD(e, ste_nested);
+    DBGLOGFIELDD(e, ste_free);
+    DBGLOGFIELDD(e, ste_child_free);
+    DBGLOGFIELDD(e, ste_generator);
+    DBGLOGFIELDD(e, ste_coroutine);
+    DBGLOGFIELDD(e, ste_varargs);
+    DBGLOGFIELDD(e, ste_varkeywords);
+    DBGLOGFIELDD(e, ste_returns_value);
+    DBGLOGFIELDD(e, ste_needs_class_closure);
+    DBGLOGFIELDD(e, ste_lineno);
+    DBGLOGFIELDD(e, ste_col_offset);
+    DBGLOGFIELDD(e, ste_opt_lineno);
+    DBGLOGFIELDD(e, ste_opt_col_offset);
+    DBGLOGFIELDO(e, ste_usednames);
+    DBGLOGFIELDO(e, ste_potunused);
+}
+#endif
+
+#define DBGLOG_DUMP_SYMTAB(x) DEBUG(dbglog_dump_symtab(x))
+#define DBGLOG_DUMP_STENTRY(x) DEBUG(dbglog_dump_stentry(x))
+
+/* This flag tells that the expression counts as "usage" of a variable. */
+#define VE_FLAG_VARUSE  1
+#define VE_FLAG_VARDECL 5
+#define VE_FLAG_VARDECL_IMPLICIT 2
+#define VE_FLAG_VARDECL_EXPLICIT 3
+
+
+
 static PySTEntryObject *
 ste_new(struct symtable *st, identifier name, _Py_block_ty block,
         void *key, int lineno, int col_offset)
 {
     PySTEntryObject *ste = NULL;
     PyObject *k = NULL;
+
+    DBGLOG_FBEG();
+    DEBUG( DBGLOG("\tname: "); dbglog_dump_object(name); DBGLOG("\n"); );
+    DBGLOG("\tlineno: %d\n", lineno);
+    DBGLOG("\tcoll_offset: %d\n", col_offset);
 
     k = PyLong_FromVoidPtr(key);
     if (k == NULL)
@@ -93,6 +157,11 @@ ste_new(struct symtable *st, identifier name, _Py_block_ty block,
     if (PyDict_SetItem(st->st_blocks, ste->ste_id, (PyObject *)ste) < 0)
         goto fail;
 
+    ste->ste_usednames = PySet_New(NULL);
+    ste->ste_potunused = PySet_New(NULL);
+
+    DBGLOG_DUMP_SYMTAB(st);
+
     return ste;
  fail:
     Py_XDECREF(ste);
@@ -110,6 +179,8 @@ ste_repr(PySTEntryObject *ste)
 static void
 ste_dealloc(PySTEntryObject *ste)
 {
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_STENTRY(ste);
     ste->ste_table = NULL;
     Py_XDECREF(ste->ste_id);
     Py_XDECREF(ste->ste_name);
@@ -182,6 +253,7 @@ static int symtable_enter_block(struct symtable *st, identifier name,
 static int symtable_exit_block(struct symtable *st, void *ast);
 static int symtable_visit_stmt(struct symtable *st, stmt_ty s);
 static int symtable_visit_expr(struct symtable *st, expr_ty s);
+static int symtable_visit_expr_x(struct symtable *st, expr_ty s, unsigned flags);
 static int symtable_visit_genexp(struct symtable *st, expr_ty s);
 static int symtable_visit_listcomp(struct symtable *st, expr_ty s);
 static int symtable_visit_setcomp(struct symtable *st, expr_ty s);
@@ -214,6 +286,8 @@ symtable_new(void)
 {
     struct symtable *st;
 
+    DBGLOG_FBEG();
+
     st = (struct symtable *)PyMem_Malloc(sizeof(struct symtable));
     if (st == NULL)
         return NULL;
@@ -227,6 +301,11 @@ symtable_new(void)
         goto fail;
     st->st_cur = NULL;
     st->st_private = NULL;
+
+    st->st_strict_no_unused_vars = static_strict_no_unused_vars_viral;
+
+    DBGLOG_DUMP_SYMTAB(st);
+
     return st;
  fail:
     PySymtable_Free(st);
@@ -253,6 +332,9 @@ PySymtable_BuildObject(mod_ty mod, PyObject *filename, PyFutureFeatures *future)
     int i;
     PyThreadState *tstate;
     int recursion_limit = Py_GetRecursionLimit();
+
+    DBGLOG_FBEG();
+    DEBUG(DBGLOG("\tfilename: "); dbglog_dump_object(filename); DBGLOG("\n"));
 
     if (st == NULL)
         return NULL;
@@ -308,13 +390,16 @@ PySymtable_BuildObject(mod_ty mod, PyObject *filename, PyFutureFeatures *future)
                         "this compiler does not handle Suites");
         goto error;
     }
+
     if (!symtable_exit_block(st, (void *)mod)) {
         PySymtable_Free(st);
         return NULL;
     }
     /* Make the second symbol analysis pass */
-    if (symtable_analyze(st))
+    if (symtable_analyze(st)) {
+        DBGLOG_DUMP_SYMTAB(st);
         return st;
+    }
     PySymtable_Free(st);
     return NULL;
  error:
@@ -329,16 +414,23 @@ PySymtable_Build(mod_ty mod, const char *filename_str, PyFutureFeatures *future)
     PyObject *filename;
     struct symtable *st;
     filename = PyUnicode_DecodeFSDefault(filename_str);
+
+    DBGLOG_FBEG();
+    DBGLOG("\tfilename_str: %s\n", filename_str);
+
     if (filename == NULL)
         return NULL;
     st = PySymtable_BuildObject(mod, filename, future);
     Py_DECREF(filename);
+    DBGLOG_DUMP_SYMTAB(st);
     return st;
 }
 
 void
 PySymtable_Free(struct symtable *st)
 {
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_SYMTAB(st);
     Py_XDECREF(st->st_filename);
     Py_XDECREF(st->st_blocks);
     Py_XDECREF(st->st_stack);
@@ -363,6 +455,12 @@ PySymtable_Lookup(struct symtable *st, void *key)
                         "unknown symbol table entry");
     }
 
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_SYMTAB(st);
+    DEBUG(DBGLOG("\tk: "); dbglog_dump_object(k); DBGLOG("\n"));
+    DEBUG(DBGLOG("\tv: "); dbglog_dump_object(v); DBGLOG("\n"));
+    DBGLOG_DUMP_STENTRY(v);
+
     Py_DECREF(k);
     return (PySTEntryObject *)v;
 }
@@ -374,6 +472,9 @@ PyST_GetScope(PySTEntryObject *ste, PyObject *name)
     if (!v)
         return 0;
     assert(PyLong_Check(v));
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_STENTRY(ste);
+    DEBUG(DBGLOG("\tname: "); dbglog_dump_object(name); DBGLOG("\n"));
     return (PyLong_AS_LONG(v) >> SCOPE_OFFSET) & SCOPE_MASK;
 }
 
@@ -469,6 +570,25 @@ analyze_name(PySTEntryObject *ste, PyObject *scopes, PyObject *name, long flags,
              PyObject *bound, PyObject *local, PyObject *free,
              PyObject *global)
 {
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_STENTRY(ste);
+    DBGLOGVARO(scopes);
+    DBGLOGVARO(name);
+    DBGLOGVARD(flags);
+    DBGLOGVARD((flags & DEF_GLOBAL));
+    DBGLOGVARD((flags & DEF_NONLOCAL));
+    DBGLOGVARD((flags & DEF_BOUND));
+    DBGLOGVARO(bound);
+    DBGLOGVARO(local);
+    DBGLOGVARO(free);
+
+    /* If you declare a global or a nonlocal variable, you use a variable of an outer block.*/
+    if ((flags & (DEF_GLOBAL | DEF_NONLOCAL)) != 0) {
+        if (PySet_Add(ste->ste_usednames, name) != 0) {
+            Py_FatalError("PySet_Add(ste->ste_usednames, name) failed");
+        }
+    }
+
     if (flags & DEF_GLOBAL) {
         if (flags & DEF_NONLOCAL) {
             PyErr_Format(PyExc_SyntaxError,
@@ -578,6 +698,11 @@ static int
 drop_class_free(PySTEntryObject *ste, PyObject *free)
 {
     int res;
+
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_STENTRY(ste);
+    DBGLOGVARO(free);
+
     if (!GET_IDENTIFIER(__class__))
         return 0;
     res = PySet_Discard(free, __class__);
@@ -599,6 +724,12 @@ update_symbols(PyObject *symbols, PyObject *scopes,
     PyObject *name = NULL, *itr = NULL;
     PyObject *v = NULL, *v_scope = NULL, *v_new = NULL, *v_free = NULL;
     Py_ssize_t pos = 0;
+
+    DBGLOG_FBEG();
+    DBGLOGVARO(symbols);
+    DBGLOGVARO(scopes);
+    DBGLOGVARO(bound);
+    DBGLOGVARO(free);
 
     /* Update scope information for all symbols in this scope */
     while (PyDict_Next(symbols, &pos, &name, &v)) {
@@ -708,6 +839,12 @@ analyze_block(PySTEntryObject *ste, PyObject *bound, PyObject *free,
     PyObject *temp;
     int i, success = 0;
     Py_ssize_t pos = 0;
+
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_STENTRY(ste);
+    DBGLOGVARO(bound);
+    DBGLOGVARO(free);
+    DBGLOGVARO(global);
 
     local = PySet_New(NULL);  /* collect new names bound in block */
     if (!local)
@@ -855,6 +992,12 @@ analyze_child_block(PySTEntryObject *entry, PyObject *bound, PyObject *free,
     PyObject *temp_bound = NULL, *temp_global = NULL, *temp_free = NULL;
     PyObject *temp;
 
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_STENTRY(entry);
+    DBGLOGVARO(bound);
+    DBGLOGVARO(free);
+    DBGLOGVARO(global);
+
     /* Copy the bound and global dictionaries.
 
        These dictionaries are used by all blocks enclosed by the
@@ -895,6 +1038,8 @@ symtable_analyze(struct symtable *st)
     PyObject *free, *global;
     int r;
 
+    DBGLOG_FBEG();
+
     free = PySet_New(NULL);
     if (!free)
         return 0;
@@ -918,14 +1063,35 @@ static int
 symtable_exit_block(struct symtable *st, void *ast)
 {
     Py_ssize_t size;
+    PySTEntryObject *prev_ste;
 
+    DBGLOG_FBEG();
+
+    prev_ste = st->st_cur;
     st->st_cur = NULL;
     size = PyList_GET_SIZE(st->st_stack);
     if (size) {
-        if (PyList_SetSlice(st->st_stack, size - 1, size, NULL) < 0)
+        if (PyList_SetSlice(st->st_stack, size - 1, size, NULL) < 0) {
             return 0;
-        if (--size)
+        }
+        if (--size) {
+            Py_ssize_t pos = 0;
+            PyObject *key = 0;
+            Py_hash_t hash = 0;
+            PyObject *prev_usednames;
+            PyObject *cur_usednames;
+
             st->st_cur = (PySTEntryObject *)PyList_GET_ITEM(st->st_stack, size - 1);
+
+            /* Copy all used names to the outer block. */
+            prev_usednames = prev_ste->ste_usednames;
+            cur_usednames = st->st_cur->ste_usednames;
+            while (_PySet_NextEntry(prev_usednames, &pos, &key, &hash)) {
+                if (PySet_Add(cur_usednames, key) != 0) {
+                    Py_FatalError("PySet_Add(cur_usednames, key) failed");
+                }
+            }
+        }
     }
     return 1;
 }
@@ -935,6 +1101,8 @@ symtable_enter_block(struct symtable *st, identifier name, _Py_block_ty block,
                      void *ast, int lineno, int col_offset)
 {
     PySTEntryObject *prev = NULL, *ste;
+
+    DBGLOG_FBEG();
 
     ste = ste_new(st, name, block, ast, lineno, col_offset);
     if (ste == NULL)
@@ -968,6 +1136,10 @@ symtable_lookup(struct symtable *st, PyObject *name)
     Py_DECREF(mangled);
     if (!o)
         return 0;
+
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_SYMTAB(st);
+    DBGLOGVARO(name);
     return PyLong_AsLong(o);
 }
 
@@ -979,6 +1151,9 @@ symtable_add_def(struct symtable *st, PyObject *name, int flag)
     long val;
     PyObject *mangled = _Py_Mangle(st->st_private, name);
 
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_SYMTAB(st);
+    DBGLOGVARO(name);
 
     if (!mangled)
         return 0;
@@ -1053,12 +1228,27 @@ error:
 #define VISIT_SEQ(ST, TYPE, SEQ) { \
     int i; \
     asdl_seq *seq = (SEQ); /* avoid variable capture */ \
+    DBGLOG("\t\tVISIT_SEQ: %d\n", asdl_seq_LEN(seq)); \
     for (i = 0; i < asdl_seq_LEN(seq); i++) { \
         TYPE ## _ty elt = (TYPE ## _ty)asdl_seq_GET(seq, i); \
         if (!symtable_visit_ ## TYPE((ST), elt)) \
             VISIT_QUIT((ST), 0);                 \
     } \
 }
+
+#define VISIT_EXPR_SEQ(ST, SEQ, FLAGS) { \
+    int i; \
+    asdl_seq *seq = (SEQ); /* avoid variable capture */ \
+    DBGLOG("\t\tVISIT_EXPR_SEQ: %d\n", asdl_seq_LEN(seq)); \
+    for (i = 0; i < asdl_seq_LEN(seq); i++) { \
+        expr_ty elt = (expr_ty)asdl_seq_GET(seq, i); \
+        if (!symtable_visit_expr_x((ST), elt, (FLAGS))) \
+            VISIT_QUIT((ST), 0);                 \
+    } \
+}
+#define VISIT_EXPR(ST, V, FLAGS) \
+    if (!symtable_visit_expr_x((ST), (V), (FLAGS))) \
+        VISIT_QUIT((ST), 0);
 
 #define VISIT_SEQ_TAIL(ST, TYPE, SEQ, START) { \
     int i; \
@@ -1106,6 +1296,9 @@ symtable_record_directive(struct symtable *st, identifier name, stmt_ty s)
 static int
 symtable_visit_stmt(struct symtable *st, stmt_ty s)
 {
+    DBGLOG_FBEG();
+    DBGLOG_DUMP_SYMTAB(st);
+
     if (++st->recursion_depth > st->recursion_limit) {
         PyErr_SetString(PyExc_RecursionError,
                         "maximum recursion depth exceeded during compilation");
@@ -1113,6 +1306,7 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
     }
     switch (s->kind) {
     case FunctionDef_kind:
+        DBGLOG("FunctionDef\n");
         if (!symtable_add_def(st, s->v.FunctionDef.name, DEF_LOCAL))
             VISIT_QUIT(st, 0);
         if (s->v.FunctionDef.args->defaults)
@@ -1134,6 +1328,7 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
             VISIT_QUIT(st, 0);
         break;
     case ClassDef_kind: {
+        DBGLOG("ClassDef\n");
         PyObject *tmp;
         if (!symtable_add_def(st, s->v.ClassDef.name, DEF_LOCAL))
             VISIT_QUIT(st, 0);
@@ -1153,19 +1348,23 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
         break;
     }
     case Return_kind:
+        DBGLOG("Return\n");
         if (s->v.Return.value) {
             VISIT(st, expr, s->v.Return.value);
             st->st_cur->ste_returns_value = 1;
         }
         break;
     case Delete_kind:
+        DBGLOG("Delete\n");
         VISIT_SEQ(st, expr, s->v.Delete.targets);
         break;
     case Assign_kind:
-        VISIT_SEQ(st, expr, s->v.Assign.targets);
+        DBGLOG("Assign\n");
+        VISIT_EXPR_SEQ(st, s->v.Assign.targets, VE_FLAG_VARDECL_IMPLICIT);
         VISIT(st, expr, s->v.Assign.value);
         break;
     case AnnAssign_kind:
+        DBGLOG("AnnAssign\n");
         if (s->v.AnnAssign.target->kind == Name_kind) {
             expr_ty e_name = s->v.AnnAssign.target;
             long cur = symtable_lookup(st, e_name->v.Name.id);
@@ -1203,10 +1402,12 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
         }
         break;
     case AugAssign_kind:
+        DBGLOG("AugAssign\n");
         VISIT(st, expr, s->v.AugAssign.target);
         VISIT(st, expr, s->v.AugAssign.value);
         break;
     case For_kind:
+        DBGLOG("For\n");
         VISIT(st, expr, s->v.For.target);
         VISIT(st, expr, s->v.For.iter);
         VISIT_SEQ(st, stmt, s->v.For.body);
@@ -1214,12 +1415,14 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
             VISIT_SEQ(st, stmt, s->v.For.orelse);
         break;
     case While_kind:
+        DBGLOG("While\n");
         VISIT(st, expr, s->v.While.test);
         VISIT_SEQ(st, stmt, s->v.While.body);
         if (s->v.While.orelse)
             VISIT_SEQ(st, stmt, s->v.While.orelse);
         break;
     case If_kind:
+        DBGLOG("If\n");
         /* XXX if 0: and lookup_yield() hacks */
         VISIT(st, expr, s->v.If.test);
         VISIT_SEQ(st, stmt, s->v.If.body);
@@ -1227,6 +1430,7 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
             VISIT_SEQ(st, stmt, s->v.If.orelse);
         break;
     case Raise_kind:
+        DBGLOG("Raise\n");
         if (s->v.Raise.exc) {
             VISIT(st, expr, s->v.Raise.exc);
             if (s->v.Raise.cause) {
@@ -1235,23 +1439,28 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
         }
         break;
     case Try_kind:
+        DBGLOG("Try\n");
         VISIT_SEQ(st, stmt, s->v.Try.body);
         VISIT_SEQ(st, stmt, s->v.Try.orelse);
         VISIT_SEQ(st, excepthandler, s->v.Try.handlers);
         VISIT_SEQ(st, stmt, s->v.Try.finalbody);
         break;
     case Assert_kind:
+        DBGLOG("Assert\n");
         VISIT(st, expr, s->v.Assert.test);
         if (s->v.Assert.msg)
             VISIT(st, expr, s->v.Assert.msg);
         break;
     case Import_kind:
+        DBGLOG("Import\n");
         VISIT_SEQ(st, alias, s->v.Import.names);
         break;
     case ImportFrom_kind:
+        DBGLOG("ImportFrom\n");
         VISIT_SEQ(st, alias, s->v.ImportFrom.names);
         break;
     case Global_kind: {
+        DBGLOG("Global\n");
         int i;
         asdl_seq *seq = s->v.Global.names;
         for (i = 0; i < asdl_seq_LEN(seq); i++) {
@@ -1285,6 +1494,7 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
         break;
     }
     case Nonlocal_kind: {
+        DBGLOG("NonLocal\n");
         int i;
         asdl_seq *seq = s->v.Nonlocal.names;
         for (i = 0; i < asdl_seq_LEN(seq); i++) {
@@ -1317,18 +1527,22 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
         break;
     }
     case Expr_kind:
+        DBGLOG("Expr\n");
         VISIT(st, expr, s->v.Expr.value);
         break;
     case Pass_kind:
     case Break_kind:
     case Continue_kind:
         /* nothing to do here */
+        DBGLOG("Pass/Break/Continue\n");
         break;
     case With_kind:
+        DBGLOG("With\n");
         VISIT_SEQ(st, withitem, s->v.With.items);
         VISIT_SEQ(st, stmt, s->v.With.body);
         break;
     case AsyncFunctionDef_kind:
+        DBGLOG("AsyncFunctionDef\n");
         if (!symtable_add_def(st, s->v.AsyncFunctionDef.name, DEF_LOCAL))
             VISIT_QUIT(st, 0);
         if (s->v.AsyncFunctionDef.args->defaults)
@@ -1352,10 +1566,12 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
             VISIT_QUIT(st, 0);
         break;
     case AsyncWith_kind:
+        DBGLOG("AsyncWith\n");
         VISIT_SEQ(st, withitem, s->v.AsyncWith.items);
         VISIT_SEQ(st, stmt, s->v.AsyncWith.body);
         break;
     case AsyncFor_kind:
+        DBGLOG("AsyncFor\n");
         VISIT(st, expr, s->v.AsyncFor.target);
         VISIT(st, expr, s->v.AsyncFor.iter);
         VISIT_SEQ(st, stmt, s->v.AsyncFor.body);
@@ -1369,23 +1585,36 @@ symtable_visit_stmt(struct symtable *st, stmt_ty s)
 static int
 symtable_visit_expr(struct symtable *st, expr_ty e)
 {
+    return symtable_visit_expr_x(st, e, VE_FLAG_VARUSE | VE_FLAG_VARDECL_IMPLICIT);
+}
+
+static int
+symtable_visit_expr_x(struct symtable *st, expr_ty e, unsigned flags)
+{
     if (++st->recursion_depth > st->recursion_limit) {
         PyErr_SetString(PyExc_RecursionError,
                         "maximum recursion depth exceeded during compilation");
         VISIT_QUIT(st, 0);
     }
+
+    DBGLOG_FBEG();
+
     switch (e->kind) {
     case BoolOp_kind:
+        DBGLOG("BoolOp\n");
         VISIT_SEQ(st, expr, e->v.BoolOp.values);
         break;
     case BinOp_kind:
+        DBGLOG("BinOp\n");
         VISIT(st, expr, e->v.BinOp.left);
         VISIT(st, expr, e->v.BinOp.right);
         break;
     case UnaryOp_kind:
+        DBGLOG("UnaryOp\n");
         VISIT(st, expr, e->v.UnaryOp.operand);
         break;
     case Lambda_kind: {
+        DBGLOG("Lambda\n");
         if (!GET_IDENTIFIER(lambda))
             VISIT_QUIT(st, 0);
         if (e->v.Lambda.args->defaults)
@@ -1403,61 +1632,75 @@ symtable_visit_expr(struct symtable *st, expr_ty e)
         break;
     }
     case IfExp_kind:
+        DBGLOG("IfExp\n");
         VISIT(st, expr, e->v.IfExp.test);
         VISIT(st, expr, e->v.IfExp.body);
         VISIT(st, expr, e->v.IfExp.orelse);
         break;
     case Dict_kind:
+        DBGLOG("Dict\n");
         VISIT_SEQ_WITH_NULL(st, expr, e->v.Dict.keys);
         VISIT_SEQ(st, expr, e->v.Dict.values);
         break;
     case Set_kind:
+        DBGLOG("Set\n");
         VISIT_SEQ(st, expr, e->v.Set.elts);
         break;
     case GeneratorExp_kind:
+        DBGLOG("GeneratorExp\n");
         if (!symtable_visit_genexp(st, e))
             VISIT_QUIT(st, 0);
         break;
     case ListComp_kind:
+        DBGLOG("ListComp\n");
         if (!symtable_visit_listcomp(st, e))
             VISIT_QUIT(st, 0);
         break;
     case SetComp_kind:
+        DBGLOG("SetComp\n");
         if (!symtable_visit_setcomp(st, e))
             VISIT_QUIT(st, 0);
         break;
     case DictComp_kind:
+        DBGLOG("DictComp\n");
         if (!symtable_visit_dictcomp(st, e))
             VISIT_QUIT(st, 0);
         break;
     case Yield_kind:
+        DBGLOG("Yield\n");
         if (e->v.Yield.value)
             VISIT(st, expr, e->v.Yield.value);
         st->st_cur->ste_generator = 1;
         break;
     case YieldFrom_kind:
+        DBGLOG("YieldFrom\n");
         VISIT(st, expr, e->v.YieldFrom.value);
         st->st_cur->ste_generator = 1;
         break;
     case Await_kind:
+        DBGLOG("Await\n");
         VISIT(st, expr, e->v.Await.value);
         st->st_cur->ste_coroutine = 1;
         break;
     case Compare_kind:
+        DBGLOG("Compare\n");
         VISIT(st, expr, e->v.Compare.left);
         VISIT_SEQ(st, expr, e->v.Compare.comparators);
         break;
     case Call_kind:
+        DBGLOG("Call\n");
         VISIT(st, expr, e->v.Call.func);
         VISIT_SEQ(st, expr, e->v.Call.args);
         VISIT_SEQ_WITH_NULL(st, keyword, e->v.Call.keywords);
         break;
     case FormattedValue_kind:
+        DBGLOG("FormattedValue\n");
         VISIT(st, expr, e->v.FormattedValue.value);
         if (e->v.FormattedValue.format_spec)
             VISIT(st, expr, e->v.FormattedValue.format_spec);
         break;
     case JoinedStr_kind:
+        DBGLOG("JoinedStr\n");
         VISIT_SEQ(st, expr, e->v.JoinedStr.values);
         break;
     case Constant_kind:
@@ -1467,19 +1710,24 @@ symtable_visit_expr(struct symtable *st, expr_ty e)
     case Ellipsis_kind:
     case NameConstant_kind:
         /* Nothing to do here. */
+        DBGLOG("Constant/Num/Str/Bytes/Ellipsis/NameConstant\n");
         break;
     /* The following exprs can be assignment targets. */
     case Attribute_kind:
+        DBGLOG("Attribute\n");
         VISIT(st, expr, e->v.Attribute.value);
         break;
     case Subscript_kind:
+        DBGLOG("Subscript\n");
         VISIT(st, expr, e->v.Subscript.value);
         VISIT(st, slice, e->v.Subscript.slice);
         break;
     case Starred_kind:
+        DBGLOG("Starred\n");
         VISIT(st, expr, e->v.Starred.value);
         break;
     case Name_kind:
+        DBGLOG("Name\n");
         if (!symtable_add_def(st, e->v.Name.id,
                               e->v.Name.ctx == Load ? USE : DEF_LOCAL))
             VISIT_QUIT(st, 0);
@@ -1491,12 +1739,23 @@ symtable_visit_expr(struct symtable *st, expr_ty e)
                 !symtable_add_def(st, __class__, USE))
                 VISIT_QUIT(st, 0);
         }
+
+        DBGLOGVARO(e->v.Name.id);
+        if ((flags & VE_FLAG_VARUSE) != 0) {
+            DBGLOG("\t\tVE_FLAG_VARUSE\n");
+            PySet_Add(st->st_cur->ste_usednames, e->v.Name.id);
+        } else {
+            DBGLOG("\t\t!VE_FLAG_VARUSE\n");
+            PySet_Add(st->st_cur->ste_potunused, e->v.Name.id);
+        }
         break;
     /* child nodes of List and Tuple will have expr_context set */
     case List_kind:
+        DBGLOG("List\n");
         VISIT_SEQ(st, expr, e->v.List.elts);
         break;
     case Tuple_kind:
+        DBGLOG("Tuple\n");
         VISIT_SEQ(st, expr, e->v.Tuple.elts);
         break;
     }
@@ -1635,6 +1894,14 @@ symtable_visit_alias(struct symtable *st, alias_ty a)
         store_name = name;
         Py_INCREF(store_name);
     }
+
+    if (_PyUnicode_EqualToASCIIString(name, "strict_no_unused_vars")) {
+        st->st_strict_no_unused_vars = 1;
+    } else if (_PyUnicode_EqualToASCIIString(name, "strict_no_unused_vars_viral")) {
+        st->st_strict_no_unused_vars = 1;
+        static_strict_no_unused_vars_viral = 1;
+    }
+
     if (!_PyUnicode_EqualToASCIIString(name, "*")) {
         int r = symtable_add_def(st, store_name, DEF_IMPORT);
         Py_DECREF(store_name);

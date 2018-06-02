@@ -349,6 +349,7 @@ class Charset:
                     lines.append(None)
                 else:
                     separator = (' ' if lines else '')
+                    del separator # STRICT
                     joined_line = EMPTYSTRING.join(current_line)
                     header_bytes = _encode(joined_line, codec)
                     lines.append(encoder(header_bytes))

@@ -559,6 +559,7 @@ def _lru_cache_wrapper(user_function, maxsize, typed, _CacheInfo):
                     root = oldroot[NEXT]
                     oldkey = root[KEY]
                     oldresult = root[RESULT]
+                    del oldresult # STRICT
                     root[KEY] = root[RESULT] = None
                     # Now update the cache dictionary.
                     del cache[oldkey]

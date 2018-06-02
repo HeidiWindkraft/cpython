@@ -394,6 +394,7 @@ def detect_encoding(readline):
         encoding = _get_normal_name(match.group(1))
         try:
             codec = lookup(encoding)
+            del codec # STRICT
         except LookupError:
             # This behaviour mimics the Python interpreter
             if filename is None:

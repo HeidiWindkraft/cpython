@@ -1034,6 +1034,7 @@ def _getfullargs(co):
     args = list(names[:nargs])
     kwonlyargs = list(names[nargs:nargs+nkwargs])
     step = 0
+    del step # strict
 
     nargs += nkwargs
     varargs = None

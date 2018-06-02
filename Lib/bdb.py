@@ -379,6 +379,7 @@ class Bdb:
         if lineno not in list:
             list.append(lineno)
         bp = Breakpoint(filename, lineno, temporary, cond, funcname)
+        del bp # strict
         return None
 
     def _prune_breaks(self, filename, lineno):

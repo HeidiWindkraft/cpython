@@ -512,8 +512,8 @@ class PyBuildExt(build_ext):
         ret = os.system('%s -E -v - </dev/null 2>%s 1>/dev/null' % (gcc, tmpfile))
         is_gcc = False
         in_incdirs = False
-        inc_dirs = []
-        lib_dirs = []
+        # inc_dirs = [] # STRICT
+        # lib_dirs = [] # STRICT
         try:
             if ret >> 8 == 0:
                 with open(tmpfile) as fp:

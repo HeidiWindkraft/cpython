@@ -163,6 +163,7 @@ def _parse(tokens, priority=-1):
 def _as_int(n):
     try:
         i = round(n)
+        del i # STRICT
     except TypeError:
         raise TypeError('Plural value must be an integer, got %s' %
                         (n.__class__.__name__,)) from None

@@ -233,6 +233,7 @@ class _LazyModule(types.ModuleType):
         # of the module and now.
         attrs_then = self.__spec__.loader_state['__dict__']
         original_type = self.__spec__.loader_state['__class__']
+        del original_type # STRICT
         attrs_now = self.__dict__
         attrs_updated = {}
         for key, value in attrs_now.items():
