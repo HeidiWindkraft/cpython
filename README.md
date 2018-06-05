@@ -86,5 +86,18 @@ but you can just use `__slots__`, if you want to prevent dynamic extension of in
 
 StrictPython currently doesn't give `vars()` the special treatment it needs.
 
-There's no guarantee that StrictPython detects all unused variables, when there are many nested scopes. Use small functions.
+Because in Python variable shadowing only happens, if you have nested scopes (i.e. function),
+StrictPython doesn't care about shadowing.
+If a nested function shadows a variable of the outer function and uses it,
+the variable in the outer function is seen as 'used'.
+
+## Future work
+
+The "declaration checks" operate on PyObjects.
+Instead of implementing these checks in C they could be implemented in Python:
+  - The PyObjects could be made visible to Python.
+  - There could be call-outs in the symbol table and compiler functions where Python classes can register.
+strict_cpython could then bootstrap its checks from python before compiling other code.
+This must only be used for static analysis, because if the extensions lead to different code,
+this might conflict with the pycache.
 
