@@ -97,6 +97,7 @@ The "declaration checks" operate on PyObjects.
 Instead of implementing these checks in C they could be implemented in Python:
   - The PyObjects could be made visible to Python.
   - There could be call-outs in the symbol table and compiler functions where Python classes can register.
+
 strict_cpython could then bootstrap its checks from python before compiling other code.
 This must only be used for static analysis, because if the extensions lead to different code,
 this might conflict with the pycache.
