@@ -188,6 +188,8 @@ ste_dealloc(PySTEntryObject *ste)
     Py_XDECREF(ste->ste_varnames);
     Py_XDECREF(ste->ste_children);
     Py_XDECREF(ste->ste_directives);
+    Py_XDECREF(ste->ste_usednames);
+    Py_XDECREF(ste->ste_potunused);
     PyObject_Del(ste);
 }
 
