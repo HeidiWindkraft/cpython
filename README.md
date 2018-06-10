@@ -7,7 +7,7 @@ which don't have unused variables which were declared implicitly.
 ## Description
 
 This is a fork of cpython.
-The original README can be found in [./CPYTHON_README.rst].
+The original README can be found in [README.rst].
 
 I'm relatively new to python and the lack of explicit declarations disturbs me.
 So I do the obvious:
