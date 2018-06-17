@@ -98,6 +98,7 @@ Significant improvements in the standard library:
 CPython implementation improvements:
 
 * Avoiding the use of ASCII as a default text encoding:
+
   * :ref:`PEP 538 <whatsnew37-pep538>`, legacy C locale coercion
   * :ref:`PEP 540 <whatsnew37-pep540>`, forced UTF-8 runtime mode
 * :ref:`PEP 552 <whatsnew37-pep552>`, deterministic .pycs
@@ -962,8 +963,10 @@ It is used when ``http.server`` is run with ``-m``.
 idlelib and IDLE
 ----------------
 
+Multiple fixes for autocompletion. (Contributed by Louie Lu in :issue:`15786`.)
+
 Module Browser (on the File menu, formerly called Class Browser),
-now displays nested functions and classed in addition to top-level
+now displays nested functions and classes in addition to top-level
 functions and classes.
 (Contributed by Guilherme Polo, Cheryl Sabella, and Terry Jan Reedy
 in :issue:`1612262`.)
@@ -975,13 +978,25 @@ to improve both appearance and function.
 The font sample now includes a selection of non-Latin characters so that
 users can better see the effect of selecting a particular font.
 (Contributed by Terry Jan Reedy in :issue:`13802`.)
-The sample can be edited to test other characters.
+The sample can be edited to include other characters.
 (Contributed by Serhiy Storchaka in :issue:`31860`.)
 
 The IDLE features formerly implemented as extensions have been reimplemented
 as normal features.  Their settings have been moved from the Extensions tab
 to other dialog tabs.
 (Contributed by Charles Wohlganger and Terry Jan Reedy in :issue:`27099`.)
+
+Editor code context option revised.  Box displays all context lines up to
+maxlines.  Clicking on a context line jumps the editor to that line.  Context
+colors for custom themes is added to Highlights tab of Settings dialog.
+(Contributed by Cheryl Sabella and Terry Jan Reedy in :issue:`33642`,
+:issue:`33768`, and :issue:`33679`,
+
+On Windows, a new API call tells Windows that tk scales for DPI. On Windows
+8.1+ or 10, with DPI compatibility properties of the Python binary
+unchanged, and a monitor resolution greater than 96 DPI, this should
+make text and lines sharper.  It should otherwise have no effect.
+(Contributed by Terry Jan Reedy in :issue:`33656`).
 
 The changes above have been backported to 3.6 maintenance releases.
 
@@ -2247,7 +2262,7 @@ Changes in the Python API
 
 * Because :func:`shutil.rmtree` is now implemented using the :func:`os.scandir`
   function, the user specified handler *onerror* is now called with the first
-  argument ``os.scandir`` instead of ``os.listdir`` when listing the direcory
+  argument ``os.scandir`` instead of ``os.listdir`` when listing the directory
   is failed.
 
 * Support for nested sets and set operations in regular expressions as in
@@ -2331,12 +2346,6 @@ Changes in the Python API
 * :attr:`Struct.format <struct.Struct.format>` is now a :class:`str` instance
   instead of a :class:`bytes` instance.
   (Contributed by Victor Stinner in :issue:`21071`.)
-
-* :mod:`argparse` subparsers are now required by default.  This matches the
-  behaviour in Python 2.  To add an optional subparser, pass
-  ``required=False`` to
-  :meth:`ArgumentParser.add_subparsers() <argparse.ArgumentParser.add_subparsers>`.
-  (Contributed by Anthony Sottile in :issue:`26510`.)
 
 * :meth:`ast.literal_eval()` is now stricter.  Addition and subtraction of
   arbitrary numbers are no longer allowed.
@@ -2429,3 +2438,13 @@ sufficient to both emit :exc:`BytesWarning` messages and have them converted
 to exceptions.  Instead, the flag must be set (to cause the warnings to be
 emitted in the first place), and an explicit ``error::BytesWarning``
 warnings filter added to convert them to exceptions.
+
+Due to a change in the way docstrings are handled by the compiler, the
+implicit ``return None`` in a function body consisting solely of a docstring
+is now marked as occurring on the same line as the docstring, not on the
+function's header line.
+
+The current exception state has been moved from the frame object to the co-routine.
+This simplified the interpreter and fixed a couple of obscure bugs caused by
+having swap exception state when entering or exiting a generator.
+(Contributed by Mark Shannon in :issue:`25612`.)
