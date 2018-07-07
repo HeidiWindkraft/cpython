@@ -37,24 +37,24 @@ StrictPython doesn't care about the type given in the annotation.
 For example the following code is OK for StrictPython:
 ```python
 def f():
-	s : _           # Explicitly declares `s`.
-	t : my = 1      # Explicitly declares `t`.
-	u : auto = 1    # Explicitly declares `u`.
-	v : var = 1     # Explicitly declares `v`.
-	w : any = 1     # Explicitly declares `w`.
+    s : _           # Explicitly declares `s`.
+    t : my = 1      # Explicitly declares `t`.
+    u : auto = 1    # Explicitly declares `u`.
+    v : var = 1     # Explicitly declares `v`.
+    w : any = 1     # Explicitly declares `w`.
     x : Any = 1     # Explicitly declares `x`.
     y : [] = 2      # Explicitly declares `y`.
-	z : str = 3     # Explicitly declares `z`.
-	s = t
-	t = u
-	u = v
-	v = w
-	w = x
+    z : str = 3     # Explicitly declares `z`.
+    s = t
+    t = u
+    u = v
+    v = w
+    w = x
     x = y
-	y = z
-	z = x
+    y = z
+    z = x
     return s * t * u * v * w * x * y * z
-	# No compile-time error.
+    # No compile-time error.
 ```
 
 Using undeclared variables is a compile-time error.
