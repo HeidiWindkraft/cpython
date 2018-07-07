@@ -110,12 +110,13 @@ with open('general_kenobi.txt', 'w') as ofile:  # Error: Must not shadow previou
 
 ### `for` statements
 
-Note that `for` statements don't allow annotations.
+`for` statements don't allow annotations.
 
 `for` statements lazily declare a variable.
 If the variable is not yet declared, the for statement declares it in its own scope.
 If the variable is already declared, then this variable is re-used.
-`for` variables cannot not shadow outer variables.
+`for` variables cannot shadow outer variables.
+
 
 ```python
 for i in range(3,9): # Explicitly declares variable `i`.
