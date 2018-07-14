@@ -6,6 +6,7 @@ from test import support
 from textwrap import dedent
 import os
 import re
+import sys
 
 class StrictTest(unittest.TestCase):
 
@@ -13,6 +14,9 @@ class StrictTest(unittest.TestCase):
         self.assertIn('%s.py, line %d' % (basename, lineno), str(err))
         self.assertEqual(os.path.basename(err.filename), basename + '.py')
         self.assertEqual(err.lineno, lineno)
+
+    def test_implname(self):
+        self.assertEqual(sys.implementation.name, "strict_cpython")
 
     def test_goodstrict(self):
         with support.CleanImport('goodsyntax_strict'):
