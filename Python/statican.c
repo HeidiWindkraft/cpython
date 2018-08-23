@@ -196,12 +196,12 @@ static PyObject *accept_expr_seq(PyStaticAn_Visitor *self, asdl_seq *seq)
 		join = self->vt->join;
 		len = asdl_seq_LEN(seq);
 		for (i = 0; i < len; i++) {
-		    expr_ty elt = (expr_ty)asdl_seq_GET(seq, i);
-		    if (!elt) continue;
-		    res = join(self, res, accept_expr(self, elt));
+			expr_ty elt = (expr_ty)asdl_seq_GET(seq, i);
+			if (!elt) continue;
+			res = join(self, res, accept_expr(self, elt));
 		}
 	}
-    return res;
+	return res;
 }
 static PyObject *accept_keyword_seq(PyStaticAn_Visitor *self, asdl_seq *seq)
 {
@@ -214,12 +214,12 @@ static PyObject *accept_keyword_seq(PyStaticAn_Visitor *self, asdl_seq *seq)
 		join = self->vt->join;
 		len = asdl_seq_LEN(seq);
 		for (i = 0; i < len; i++) {
-		    keyword_ty elt = (keyword_ty)asdl_seq_GET(seq, i);
-		    if (!elt) continue;
-		    res = join(self, res, accept_expr(self, elt->value));
+			keyword_ty elt = (keyword_ty)asdl_seq_GET(seq, i);
+			if (!elt) continue;
+			res = join(self, res, accept_expr(self, elt->value));
 		}
 	}
-    return res;
+	return res;
 }
 static void accept_def(PyStaticAn_Visitor *self, PyObject *name, int flag)
 {
@@ -239,12 +239,12 @@ static PyObject *accept_stmt_seq(PyStaticAn_Visitor *self, asdl_seq *seq)
 		join = self->vt->join;
 		len = asdl_seq_LEN(seq);
 		for (i = 0; i < len; i++) {
-		    stmt_ty elt = (stmt_ty)asdl_seq_GET(seq, i);
-		    if (!elt) continue;
-		    res = join(self, res, accept_stmt(self, elt));
+			stmt_ty elt = (stmt_ty)asdl_seq_GET(seq, i);
+			if (!elt) continue;
+			res = join(self, res, accept_stmt(self, elt));
 		}
 	}
-    return res;
+	return res;
 }
 static PyObject *visit_slice(PyStaticAn_Visitor *self, slice_ty s);
 static PyObject *accept_slice_seq(PyStaticAn_Visitor *self, asdl_seq *seq)
@@ -258,44 +258,44 @@ static PyObject *accept_slice_seq(PyStaticAn_Visitor *self, asdl_seq *seq)
 		join = self->vt->join;
 		len = asdl_seq_LEN(seq);
 		for (i = 0; i < len; i++) {
-		    slice_ty elt = (slice_ty)asdl_seq_GET(seq, i);
-		    if (!elt) continue;
-		    res = join(self, res, visit_slice(self, elt));
+			slice_ty elt = (slice_ty)asdl_seq_GET(seq, i);
+			if (!elt) continue;
+			res = join(self, res, visit_slice(self, elt));
 		}
 	}
-    return res;
+	return res;
 }
 static PyObject *visit_slice(PyStaticAn_Visitor *self, slice_ty s)
 {
 	PyObject *res = NULL;
-    switch (s->kind) {
-    case Slice_kind:
-    {
-    	PyObject *a, *b, *c;
-        a = accept_expr(self, s->v.Slice.lower);
-        b = accept_expr(self, s->v.Slice.upper);
-        c = accept_expr(self, s->v.Slice.step);
-        {
-        	PyObject *xs[] = { a, b, c };
-        	res = JOINARR(self, xs);
-        }
-        break;
-    }
-    case ExtSlice_kind:
-        res = accept_slice_seq(self, s->v.ExtSlice.dims);
-        break;
-    case Index_kind:
-    	res = accept_expr(self, s->v.Index.value);
-        break;
-    default:
-   		PyErr_Format(PyExc_SyntaxError,
+	switch (s->kind) {
+	case Slice_kind:
+	{
+		PyObject *a, *b, *c;
+		a = accept_expr(self, s->v.Slice.lower);
+		b = accept_expr(self, s->v.Slice.upper);
+		c = accept_expr(self, s->v.Slice.step);
+		{
+			PyObject *xs[] = { a, b, c };
+			res = JOINARR(self, xs);
+		}
+		break;
+	}
+	case ExtSlice_kind:
+		res = accept_slice_seq(self, s->v.ExtSlice.dims);
+		break;
+	case Index_kind:
+		res = accept_expr(self, s->v.Index.value);
+		break;
+	default:
+		PyErr_Format(PyExc_SyntaxError,
 			"Internal error: Visitor '%s' encountered unexpected slice expression (integer value of kind: %d)",
 			self->vt->class_name,
 			(unsigned)(s->kind)
 		);
 		PyErr_SyntaxLocationObject(self->filename, 0, 0);
-    }
-    return res;
+	}
+	return res;
 }
 
 
@@ -353,8 +353,8 @@ static void visit_params(PyStaticAn_Visitor *self, asdl_seq *args)
 	if (self->vt->visit_def) {
 		len = asdl_seq_LEN(args);
 		for (i = 0; i < len; i++) {
-		    arg_ty arg = (arg_ty)asdl_seq_GET(args, i);
-		    accept_def(self, arg->arg, DEF_PARAM);
+			arg_ty arg = (arg_ty)asdl_seq_GET(args, i);
+			accept_def(self, arg->arg, DEF_PARAM);
 		}
 	}
 }
@@ -362,17 +362,17 @@ static void visit_params(PyStaticAn_Visitor *self, asdl_seq *args)
 static void visit_arguments(PyStaticAn_Visitor *self, arguments_ty a)
 {
 	if (a->args) {
-    	visit_params(self, a->args);
-    }
-    if (a->kwonlyargs) {
-    	visit_params(self, a->kwonlyargs);
-    }
-    if (a->vararg) {
-        accept_def(self, a->vararg->arg, DEF_PARAM);
-    }
-    if (a->kwarg) {
-        accept_def(self, a->kwarg->arg, DEF_PARAM);
-    }
+		visit_params(self, a->args);
+	}
+	if (a->kwonlyargs) {
+		visit_params(self, a->kwonlyargs);
+	}
+	if (a->vararg) {
+		accept_def(self, a->vararg->arg, DEF_PARAM);
+	}
+	if (a->kwarg) {
+		accept_def(self, a->kwarg->arg, DEF_PARAM);
+	}
 }
 
 PyObject *PyStaticAn_visit_stmt_dfs_FunctionDef(PyStaticAn_Visitor *self, stmt_ty s)
@@ -408,7 +408,7 @@ PyObject *PyStaticAn_visit_stmt_dfs_FunctionDef(PyStaticAn_Visitor *self, stmt_t
 	self->vt->enter_block(self, s->v.FunctionDef.name, FunctionBlock);
 
 	visit_arguments(self, a);
-    res = join(self, res, accept_stmt_seq(self, s->v.FunctionDef.body));
+	res = join(self, res, accept_stmt_seq(self, s->v.FunctionDef.body));
 
 	self->vt->leave_block(self);
 	return res;
@@ -434,22 +434,22 @@ PyObject *PyStaticAn_visit_stmt_dfs_AsyncFunctionDef(PyStaticAn_Visitor *self, s
 	}
 
 	a = s->v.AsyncFunctionDef.args;
-    if (a->args) {
-    	res = join(self, res, visit_argannotations(self, a->args));
+	if (a->args) {
+		res = join(self, res, visit_argannotations(self, a->args));
 	}
 	if (a->vararg && a->vararg->annotation) {
 		res = join(self, res, accept_expr(self, a->vararg->annotation));
 	}
-    if (a->kwarg && a->kwarg->annotation) {
+	if (a->kwarg && a->kwarg->annotation) {
 		res = join(self, res, accept_expr(self, a->kwarg->annotation));
-    }
-    if (a->kwonlyargs) {
-    	res = join(self, res, visit_argannotations(self, a->kwonlyargs));
-    }
+	}
+	if (a->kwonlyargs) {
+		res = join(self, res, visit_argannotations(self, a->kwonlyargs));
+	}
 	returns = s->v.AsyncFunctionDef.returns;
-    if (returns) {
-        res = join(self, res, accept_expr(self, returns));
-    }
+	if (returns) {
+		res = join(self, res, accept_expr(self, returns));
+	}
 
 	if (s->v.AsyncFunctionDef.decorator_list) {
 		res = join(self, res, accept_expr_seq(self, s->v.AsyncFunctionDef.decorator_list));
@@ -457,7 +457,7 @@ PyObject *PyStaticAn_visit_stmt_dfs_AsyncFunctionDef(PyStaticAn_Visitor *self, s
 	self->vt->enter_block(self, s->v.AsyncFunctionDef.name, FunctionBlock);
 
 	visit_arguments(self, a);
-    res = join(self, res, accept_stmt_seq(self, s->v.AsyncFunctionDef.body));
+	res = join(self, res, accept_stmt_seq(self, s->v.AsyncFunctionDef.body));
 
 	self->vt->leave_block(self);
 	return res;
@@ -468,9 +468,9 @@ PyObject *PyStaticAn_visit_stmt_dfs_ClassDef(PyStaticAn_Visitor *self, stmt_ty s
 	PyStaticAn_join_visit_results_t join;
 
 	join = self->vt->join;
-    accept_def(self, s->v.ClassDef.name, DEF_LOCAL);
-    res = accept_expr_seq(self, s->v.ClassDef.bases);
-    res = join(self, res, accept_keyword_seq(self, s->v.ClassDef.keywords));
+	accept_def(self, s->v.ClassDef.name, DEF_LOCAL);
+	res = accept_expr_seq(self, s->v.ClassDef.bases);
+	res = join(self, res, accept_keyword_seq(self, s->v.ClassDef.keywords));
 	res = join(self, res, accept_expr_seq(self, s->v.ClassDef.decorator_list));
 	self->vt->enter_block(self, s->v.ClassDef.name, ClassBlock);
 	res = join(self, res, accept_stmt_seq(self, s->v.ClassDef.body));
@@ -577,12 +577,12 @@ static PyObject *accept_withitem_seq(PyStaticAn_Visitor *self, asdl_seq *seq)
 		join = self->vt->join;
 		len = asdl_seq_LEN(seq);
 		for (i = 0; i < len; i++) {
-		    withitem_ty elt = (withitem_ty)asdl_seq_GET(seq, i);
-		    if (!elt) continue;
-		    res = join(self, res, visit_withitem(self, elt));
+			withitem_ty elt = (withitem_ty)asdl_seq_GET(seq, i);
+			if (!elt) continue;
+			res = join(self, res, visit_withitem(self, elt));
 		}
 	}
-    return res;
+	return res;
 }
 PyObject *PyStaticAn_visit_stmt_dfs_With(PyStaticAn_Visitor *self, stmt_ty s)
 {
@@ -632,23 +632,23 @@ PyObject *PyStaticAn_visit_stmt_dfs_Try(PyStaticAn_Visitor *self, stmt_ty s)
 		join = self->vt->join;
 		len = asdl_seq_LEN(seq);
 		for (i = 0; i < len; i++) {
-		    excepthandler_ty eh = (excepthandler_ty)asdl_seq_GET(seq, i);
-		    if (eh) {
-		    	PyObject *x = NULL, *y;
-		    	self->vt->enter_subblock(self);
-		    	if (eh->v.ExceptHandler.type) {
-		    		x = accept_expr(self, eh->v.ExceptHandler.type);
-		    	}
-		    	if (eh->v.ExceptHandler.name) {
-		    		accept_def(self, eh->v.ExceptHandler.name, DEF_LOCAL);
-		    	}
-		    	self->vt->enter_subblock(self);
-		    	y = accept_stmt_seq(self, eh->v.ExceptHandler.body);
-		    	self->vt->leave_subblock(self);
-		    	c = join(self, c, x);
-		    	c = join(self, c, y);
-		    	self->vt->leave_subblock(self);
-		    }
+			excepthandler_ty eh = (excepthandler_ty)asdl_seq_GET(seq, i);
+			if (eh) {
+				PyObject *x = NULL, *y;
+				self->vt->enter_subblock(self);
+				if (eh->v.ExceptHandler.type) {
+					x = accept_expr(self, eh->v.ExceptHandler.type);
+				}
+				if (eh->v.ExceptHandler.name) {
+					accept_def(self, eh->v.ExceptHandler.name, DEF_LOCAL);
+				}
+				self->vt->enter_subblock(self);
+				y = accept_stmt_seq(self, eh->v.ExceptHandler.body);
+				self->vt->leave_subblock(self);
+				c = join(self, c, x);
+				c = join(self, c, y);
+				self->vt->leave_subblock(self);
+			}
 		}
 	}
 
@@ -666,10 +666,10 @@ PyObject *PyStaticAn_visit_stmt_dfs_Assert(PyStaticAn_Visitor *self, stmt_ty s)
 	PyObject *a, *b = NULL;
 
 	a = accept_expr(self, s->v.Assert.test);
-    if (s->v.Assert.msg) {
-        b = accept_expr(self, s->v.Assert.msg);
-    }
-    return self->vt->join(self, a, b);
+	if (s->v.Assert.msg) {
+		b = accept_expr(self, s->v.Assert.msg);
+	}
+	return self->vt->join(self, a, b);
 }
 PyObject *PyStaticAn_visit_stmt_dfs_Import(PyStaticAn_Visitor *self, stmt_ty s)
 {
@@ -794,12 +794,12 @@ PyObject *PyStaticAn_visit_expr_dfs_Set(PyStaticAn_Visitor *self, expr_ty e)
 }
 static void accept_implicit_arg(PyStaticAn_Visitor *self, int pos)
 {
-    PyObject *id = PyUnicode_FromFormat(".%d", pos);
-    if (!id) {
-    	stralloc_panic();
-    }
-    accept_def(self, id, DEF_PARAM);
-    Py_DECREF(id); /* don't leak. */
+	PyObject *id = PyUnicode_FromFormat(".%d", pos);
+	if (!id) {
+		stralloc_panic();
+	}
+	accept_def(self, id, DEF_PARAM);
+	Py_DECREF(id); /* don't leak. */
 }
 static PyObject *visit_comprehension(
 	PyStaticAn_Visitor *self,
@@ -810,45 +810,45 @@ static PyObject *visit_comprehension(
 	expr_ty value)
 {
 	PyObject *resa, *resb, *resc, *resd, *rese, *resf;
-    comprehension_ty outermost = ((comprehension_ty)
-                                    asdl_seq_GET(generators, 0));
-    /* Outermost iterator is evaluated in current scope */
-    resa = accept_expr(self, outermost->iter);
-    /* Create comprehension scope for the rest */
-    self->vt->enter_block(self, scope_name, FunctionBlock);
-    /* Outermost iter is received as an argument ? */
-    accept_implicit_arg(self, 0);
-    resb = accept_expr(self, outermost->target);
-    resc = accept_expr_seq(self, outermost->ifs);
-    
-    resd = NULL;
-    {
-    	unsigned i, len;
-    	PyStaticAn_join_visit_results_t join;
-    	
-    	join = self->vt->join;
+	comprehension_ty outermost = ((comprehension_ty)
+									asdl_seq_GET(generators, 0));
+	/* Outermost iterator is evaluated in current scope */
+	resa = accept_expr(self, outermost->iter);
+	/* Create comprehension scope for the rest */
+	self->vt->enter_block(self, scope_name, FunctionBlock);
+	/* Outermost iter is received as an argument ? */
+	accept_implicit_arg(self, 0);
+	resb = accept_expr(self, outermost->target);
+	resc = accept_expr_seq(self, outermost->ifs);
+	
+	resd = NULL;
+	{
+		unsigned i, len;
+		PyStaticAn_join_visit_results_t join;
+		
+		join = self->vt->join;
 		len = asdl_seq_LEN(generators);
 		for (i = 1; i < len; i++) {
-		    comprehension_ty elt = (comprehension_ty)asdl_seq_GET(generators, i);
-		    if (elt) {
-		    	PyObject *x, *y, *z;
-		    	x = accept_expr(self, elt->target);
-		    	y = accept_expr(self, elt->iter);
-		    	z = accept_expr_seq(self, elt->ifs);
-		    	{
-		    		PyObject *xs[] = { x, y, z };
-		    		resd = join(self, resd, JOINARR(self, xs));
-		    	}
-		    }
+			comprehension_ty elt = (comprehension_ty)asdl_seq_GET(generators, i);
+			if (elt) {
+				PyObject *x, *y, *z;
+				x = accept_expr(self, elt->target);
+				y = accept_expr(self, elt->iter);
+				z = accept_expr_seq(self, elt->ifs);
+				{
+					PyObject *xs[] = { x, y, z };
+					resd = join(self, resd, JOINARR(self, xs));
+				}
+			}
 		}
-    }
+	}
 
 	rese = NULL;
-    if (value) {
-    	rese = accept_expr(self, value);
-    }
-    resf = accept_expr(self, elt);
-    self->vt->leave_block(self);
+	if (value) {
+		rese = accept_expr(self, value);
+	}
+	resf = accept_expr(self, elt);
+	self->vt->leave_block(self);
 
 	{
 		PyObject *ress[] = { resa, resb, resc, resd, rese, resf };
@@ -867,7 +867,7 @@ PyObject *PyStaticAn_visit_expr_dfs_ListComp(PyStaticAn_Visitor *self, expr_ty e
 
 PyObject *PyStaticAn_visit_expr_dfs_SetComp(PyStaticAn_Visitor *self, expr_ty e)
 {
-    return visit_comprehension(self, e, get_setcomp_id(), e->v.SetComp.generators, e->v.SetComp.elt, NULL);
+	return visit_comprehension(self, e, get_setcomp_id(), e->v.SetComp.generators, e->v.SetComp.elt, NULL);
 }
 PyObject *PyStaticAn_visit_expr_dfs_DictComp(PyStaticAn_Visitor *self, expr_ty e)
 {
@@ -881,9 +881,9 @@ PyObject *PyStaticAn_visit_expr_dfs_DictComp(PyStaticAn_Visitor *self, expr_ty e
 }
 PyObject *PyStaticAn_visit_expr_dfs_GeneratorExp(PyStaticAn_Visitor *self, expr_ty e)
 {
-    return visit_comprehension(self, e, get_genexpr_id(),
-                                         e->v.GeneratorExp.generators,
-                                         e->v.GeneratorExp.elt, NULL);
+	return visit_comprehension(self, e, get_genexpr_id(),
+										 e->v.GeneratorExp.generators,
+										 e->v.GeneratorExp.elt, NULL);
 }
 PyObject *PyStaticAn_visit_expr_dfs_Await(PyStaticAn_Visitor *self, expr_ty e)
 {
@@ -1036,59 +1036,59 @@ void PyStaticAn_Visitor_destroy(PyObject *self_)
 
 
 static PyMemberDef PyStaticAn_Visitor_memberlist[] = {
-    {"filename", T_OBJECT, offsetof(PyStaticAn_Visitor, filename), READONLY},
-    {"abort",    T_INT,    offsetof(PyStaticAn_Visitor, abort), READONLY},
-    {NULL}
+	{"filename", T_OBJECT, offsetof(PyStaticAn_Visitor, filename), READONLY},
+	{"abort",	T_INT,	offsetof(PyStaticAn_Visitor, abort), READONLY},
+	{NULL}
 };
 PyObject *PyStaticAn_Visitor_repr(PyObject *self_)
 {
 	PyStaticAn_Visitor *self = (PyStaticAn_Visitor *)self_;
-    return PyUnicode_FromFormat("<(PyStaticAn_Visitor %s at %p in %R>",
-                                self->vt->class_name,
-                                self,
-                                self->filename);
+	return PyUnicode_FromFormat("<(PyStaticAn_Visitor %s at %p in %R>",
+								self->vt->class_name,
+								self,
+								self->filename);
 }
 
 
 PyTypeObject PyStaticAn_Visitor_Type = {
-    PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "PyStaticAn_Visitor",
-    sizeof(PyStaticAn_Visitor),
-    0,
-    (destructor)PyStaticAn_Visitor_destroy, /* tp_dealloc */
-    0,                                      /* tp_print */
-    0,                                         /* tp_getattr */
-    0,                                          /* tp_setattr */
-    0,                                          /* tp_reserved */
-    (reprfunc)PyStaticAn_Visitor_repr,          /* tp_repr */
-    0,                                          /* tp_as_number */
-    0,                                          /* tp_as_sequence */
-    0,                                          /* tp_as_mapping */
-    0,                                          /* tp_hash */
-    0,                                          /* tp_call */
-    0,                                          /* tp_str */
-    PyObject_GenericGetAttr,                    /* tp_getattro */
-    0,                                          /* tp_setattro */
-    0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,                         /* tp_flags */
-    0,                                          /* tp_doc */
-    0,                                          /* tp_traverse */
-    0,                                          /* tp_clear */
-    0,                                          /* tp_richcompare */
-    0,                                          /* tp_weaklistoffset */
-    0,                                          /* tp_iter */
-    0,                                          /* tp_iternext */
-    0,                                          /* tp_methods */
-    PyStaticAn_Visitor_memberlist,              /* tp_members */
-    0,                                          /* tp_getset */
-    0,                                          /* tp_base */
-    0,                                          /* tp_dict */
-    0,                                          /* tp_descr_get */
-    0,                                          /* tp_descr_set */
-    0,                                          /* tp_dictoffset */
-    0,                                          /* tp_init */
-    0,                                          /* tp_alloc */
-    0,                                          /* tp_new */
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
+	"PyStaticAn_Visitor",
+	sizeof(PyStaticAn_Visitor),
+	0,
+	(destructor)PyStaticAn_Visitor_destroy, /* tp_dealloc */
+	0, /* tp_print */
+	0, /* tp_getattr */
+	0, /* tp_setattr */
+	0, /* tp_reserved */
+	(reprfunc)PyStaticAn_Visitor_repr, /* tp_repr */
+	0, /* tp_as_number */
+	0, /* tp_as_sequence */
+	0, /* tp_as_mapping */
+	0, /* tp_hash */
+	0, /* tp_call */
+	0, /* tp_str */
+	PyObject_GenericGetAttr, /* tp_getattro */
+	0, /* tp_setattro */
+	0, /* tp_as_buffer */
+	Py_TPFLAGS_DEFAULT, /* tp_flags */
+	0,  /* tp_doc */
+	0, /* tp_traverse */
+	0, /* tp_clear */
+	0, /* tp_richcompare */
+	0, /* tp_weaklistoffset */
+	0, /* tp_iter */
+	0, /* tp_iternext */
+	0, /* tp_methods */
+	PyStaticAn_Visitor_memberlist, /* tp_members */
+	0, /* tp_getset */
+	0, /* tp_base */
+	0, /* tp_dict */
+	0, /* tp_descr_get */
+	0, /* tp_descr_set */
+	0, /* tp_dictoffset */
+	0, /* tp_init */
+	0, /* tp_alloc */
+	0, /* tp_new */
 };
 
 
