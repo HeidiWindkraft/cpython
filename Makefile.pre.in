@@ -361,6 +361,8 @@ PYTHON_OBJS=	\
 		Python/hamt.o \
 		Python/pythonrun.o \
 		Python/pytime.o \
+		Python/statican.o \
+		Python/statican_dump.o \
 		Python/bootstrap_hash.o \
 		Python/structmember.o \
 		Python/symtable.o \

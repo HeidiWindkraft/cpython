@@ -33,6 +33,8 @@
 
 #include "debuglog.h"
 
+#include <statican.h>
+
 #define DEFAULT_BLOCK_SIZE 16
 #define DEFAULT_BLOCKS 8
 #define DEFAULT_CODE_SIZE 128
@@ -346,6 +348,8 @@ PyAST_CompileObject(mod_ty mod, PyObject *filename, PyCompilerFlags *flags,
             PyErr_SetString(PyExc_SystemError, "no symtable");
         goto finally;
     }
+
+	PyStaticAn_Analyze(mod, filename);
 
     co = compiler_mod(&c, mod);
 
