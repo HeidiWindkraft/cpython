@@ -13,5 +13,5 @@ static void run(PyObject *visitor_, mod_ty mod, PyObject *filename)
 
 void PyStaticAn_Analyze(mod_ty mod, PyObject *filename)
 {
-	run(PyStaticAn_DumpVisitorFactory(0), mod, filename);
+	/* run(PyStaticAn_DumpVisitorFactory(0), mod, filename); */
 }
