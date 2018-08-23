@@ -1091,37 +1091,12 @@ PyTypeObject PyStaticAn_Visitor_Type = {
 	0, /* tp_new */
 };
 
-
-#define MAX_FACTORIES 32
-static unsigned s_next_factory_idx = 0;
-static PyStaticAn_factory_t s_factories[MAX_FACTORIES];
-int PyStaticAn_RegisterFactory(PyStaticAn_factory_t factory)
-{
-	unsigned idx;
-
-	if (s_next_factory_idx == MAX_FACTORIES) {
-		return -1;
-	}
-	idx = s_next_factory_idx++;
-	s_factories[idx] = factory;
-	return idx;
-}
-
-void PyStaticAn_Analyze(mod_ty mod, PyObject *filename)
-{
-	unsigned i;
-	for (i = 0; i < s_next_factory_idx; i++) {
-		PyObject *visitor_ = s_factories[i](i);
-		PyStaticAn_Visitor *visitor = (PyStaticAn_Visitor *)visitor_;
-		Py_INCREF(filename);
-		visitor->filename = filename;
-		(void) accept_mod(visitor, mod);
-		Py_DECREF(visitor);
-	}
-}
-
 PyObject *PyStaticAn_join_null(PyStaticAn_Visitor *self, PyObject *a, PyObject *b)
 {
 	return NULL;
 }
 
+PyObject *PyStaticAn_Visitor_accept_mod(PyObject *visitor_, mod_ty mod)
+{
+	return accept_mod((PyStaticAn_Visitor*)visitor_, mod);
+}

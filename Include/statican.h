@@ -19,9 +19,9 @@ extern "C" {
 
 
 extern void PyStaticAn_Analyze(mod_ty mod, PyObject *filename);
+extern PyObject *PyStaticAn_Visitor_accept_mod(PyObject *visitor_, mod_ty mod);
 
-typedef PyObject *(*PyStaticAn_factory_t)(unsigned);
-extern int PyStaticAn_RegisterFactory(PyStaticAn_factory_t factory); /*< NOT REENTRANT. */
+
 
 typedef struct PyStaticAn_visitor_s PyStaticAn_Visitor;
 

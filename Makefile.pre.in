@@ -363,6 +363,7 @@ PYTHON_OBJS=	\
 		Python/pytime.o \
 		Python/statican.o \
 		Python/statican_dump.o \
+		Python/statican_analyze.o \
 		Python/bootstrap_hash.o \
 		Python/structmember.o \
 		Python/symtable.o \
