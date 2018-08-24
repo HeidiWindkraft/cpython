@@ -43,17 +43,6 @@ static PyObject *vstmt(PyStaticAn_Visitor *self_, stmt_ty stmt, const char *msg)
 	self->depth--;
 	return NULL;
 }
-static PyObject *vstmt2(PyStaticAn_Visitor *self_, stmt_ty stmt, const char *msg)
-{
-	DumpVisitor *self = (DumpVisitor*)self_;
-	nl(self);
-	printf("stmt %s", msg);
-	fflush(stdout);
-	self->depth++;
-	/* PyStaticAn_visit_stmt_dfs(self_, stmt); */
-	self->depth--;
-	return NULL;
-}
 static PyObject *vexpr(PyStaticAn_Visitor *self_, expr_ty expr, const char *msg)
 {
 	DumpVisitor *self = (DumpVisitor*)self_;
@@ -297,9 +286,16 @@ static PyObject *visit_expr_Starred(PyStaticAn_Visitor *self, expr_ty e)
 {
 	return vexpr(self, e, "Starred");
 }
-static PyObject *visit_expr_Name(PyStaticAn_Visitor *self, expr_ty e)
+static PyObject *visit_expr_Name(PyStaticAn_Visitor *self_, expr_ty e)
 {
-	return vexpr(self, e, "Name");
+	DumpVisitor *self = (DumpVisitor*)self_;
+	vexpr(self_, e, "Name");
+	self->depth++;
+	nl(self);
+	self->depth--;
+	fflush(stdout);
+	_Py_DumpASCII(0, e->v.Name.id);
+	return NULL;
 }
 static PyObject *visit_expr_List(PyStaticAn_Visitor *self, expr_ty e)
 {
@@ -428,7 +424,10 @@ static const PyStaticAn_visitorvt_t DumpVisitorVT = {
 	.leave_block = leave_block,
 	.enter_subblock = enter_subblock,
 	.leave_subblock = leave_subblock,
-	.visit_def = visit_def
+	.visit_def = visit_def,
+	.visit_withitem = 0,
+	.visit_excepthandler = 0,
+	.visit_comprehension_generator = 0
 };
 
 static PyTypeObject DumpVisitor_Type = {

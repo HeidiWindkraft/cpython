@@ -6,9 +6,13 @@
 #include <object.h>
 #include <asdl.h>
 
+/* TODO find an easy-to-merge way to give Python-ast.h an include guard. */
 typedef struct _mod *mod_ty;
 typedef struct _stmt *stmt_ty;
 typedef struct _expr *expr_ty;
+typedef struct _withitem *withitem_ty;
+typedef struct _excepthandler *excepthandler_ty;
+typedef struct _comprehension *comprehension_ty;
 
 #include <symtable.h>
 
@@ -17,11 +21,7 @@ typedef struct _expr *expr_ty;
 extern "C" {
 #endif
 
-
-extern void PyStaticAn_Analyze(mod_ty mod, PyObject *filename);
-extern PyObject *PyStaticAn_Visitor_accept_mod(PyObject *visitor_, mod_ty mod);
-
-
+void PyStaticAn_Analyze(mod_ty mod, PyObject *filename);
 
 typedef struct PyStaticAn_visitor_s PyStaticAn_Visitor;
 
@@ -106,6 +106,15 @@ PyObject *PyStaticAn_visit_expr_dfs_Tuple(PyStaticAn_Visitor *self, expr_ty ex);
 PyObject *PyStaticAn_report_unexpected_expr(PyStaticAn_Visitor *self, expr_ty ex);
 
 
+typedef PyObject *(*PyStaticAn_visit_withitem_t)(PyStaticAn_Visitor *self, withitem_ty item);
+PyObject *PyStaticAn_visit_withitem_dfs(PyStaticAn_Visitor *self, withitem_ty item);
+
+typedef PyObject *(*PyStaticAn_visit_excepthandler_t)(PyStaticAn_Visitor *self, excepthandler_ty eh);
+PyObject *PyStaticAn_visit_excepthandler_dfs(PyStaticAn_Visitor *self, excepthandler_ty item);
+
+typedef PyObject *(*PyStaticAn_visit_comprehension_generator_t)(PyStaticAn_Visitor *self, comprehension_ty cg);
+PyObject *PyStaticAn_visit_comprehension_generator_dfs(PyStaticAn_Visitor *self, comprehension_ty cg);
+
 typedef PyObject *(*PyStaticAn_join_visit_results_t)(PyStaticAn_Visitor *self, PyObject *a, PyObject *b);
 typedef void (*PyStaticAn_enter_block_dfs_t)(PyStaticAn_Visitor *self, identifier name, _Py_block_ty block);
 typedef void (*PyStaticAn_leave_block_dfs_t)(PyStaticAn_Visitor *self);
@@ -123,6 +132,9 @@ typedef struct PyStaticAn_visitorvt_s {
 	PyStaticAn_enter_subblock_dfs_t enter_subblock;
 	PyStaticAn_leave_subblock_dfs_t leave_subblock;
 	PyStaticAn_visit_def_t visit_def;
+	PyStaticAn_visit_withitem_t visit_withitem;
+	PyStaticAn_visit_excepthandler_t visit_excepthandler;
+	PyStaticAn_visit_comprehension_generator_t visit_comprehension_generator;
 	const char *class_name;
 } PyStaticAn_visitorvt_t;
 
@@ -142,6 +154,13 @@ PyObject *PyStaticAn_Visitor_repr(PyObject *);
 PyAPI_DATA(PyTypeObject) PyStaticAn_Visitor_Type;
 
 PyObject *PyStaticAn_join_null(PyStaticAn_Visitor *self, PyObject *a, PyObject *b);
+
+PyObject *PyStaticAn_accept_mod(PyStaticAn_Visitor *self, mod_ty mod);
+PyObject *PyStaticAn_accept_stmt(PyStaticAn_Visitor *self, stmt_ty stmt);
+PyObject *PyStaticAn_accept_expr(PyStaticAn_Visitor *self, expr_ty expr);
+typedef PyObject *(*PyStaticAn_visit_asdl_elt_t)(PyStaticAn_Visitor *self, void * elt);
+PyObject *PyStaticAn_foreach_in_asdl_seq(PyStaticAn_Visitor *self, asdl_seq *seq, PyStaticAn_visit_asdl_elt_t f);
+
 
 #ifdef __cplusplus
 }

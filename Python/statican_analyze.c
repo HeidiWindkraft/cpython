@@ -7,7 +7,7 @@ static void run(PyObject *visitor_, mod_ty mod, PyObject *filename)
 	PyStaticAn_Visitor *visitor = (PyStaticAn_Visitor *)visitor_;
 	Py_INCREF(filename);
 	visitor->filename = filename;
-	(void) PyStaticAn_Visitor_accept_mod((PyObject *)visitor, mod);
+	(void) PyStaticAn_accept_mod(visitor, mod);
 	Py_DECREF(visitor);
 }
 
