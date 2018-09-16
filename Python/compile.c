@@ -5669,7 +5669,7 @@ static void dbglog_compiler_unit(struct compiler_unit *pcu)
 #endif
 
 #undef PyAST_Compile
-PyAPI_FUNC(PyCodeObject *)
+PyCodeObject *
 PyAST_Compile(mod_ty mod, const char *filename, PyCompilerFlags *flags,
               PyArena *arena)
 {
